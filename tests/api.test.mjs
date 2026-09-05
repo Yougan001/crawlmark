@@ -3,6 +3,35 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { createInspectionServer } from '../server/app.mjs';
 
+test('only two inspections may run concurrently', async () => {
+  const pending = [];
+  let ready;
+  const started = new Promise((resolve) => {
+    ready = resolve;
+  });
+  await fixture(
+    async ({ post }) => {
+      const first = post();
+      const second = post();
+      await started;
+      try {
+        assert.equal((await post()).status, 429);
+      } finally {
+        for (const resolve of pending) resolve({ checks: [] });
+      }
+      assert.equal((await first).status, 200);
+      assert.equal((await second).status, 200);
+    },
+    {
+      inspect: () =>
+        new Promise((resolve) => {
+          pending.push(resolve);
+          if (pending.length === 2) ready();
+        }),
+    },
+  );
+});
+
 async function fixture(run, options = {}) {
   let calls = 0;
   const server = createInspectionServer({
