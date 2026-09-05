@@ -7,6 +7,7 @@ export function createInspectionServer({
   origins = ['http://localhost:5184'],
   hosts = ['localhost:8787', '127.0.0.1:8787'],
   now = Date.now,
+  inspectionTimeoutMs = 25000,
 } = {}) {
   const allowedOrigins = new Set(origins);
   const allowedHosts = new Set(hosts);
@@ -52,12 +53,18 @@ export function createInspectionServer({
       };
       let acquired = false;
       const controller = new AbortController();
+      const abortBody = () => {
+        // Aborting the inspection alone does not interrupt an unfinished upload.
+        if (!request.complete && !request.destroyed)
+          request.destroy(controller.signal.reason);
+      };
+      controller.signal.addEventListener('abort', abortBody, { once: true });
       const timer = setTimeout(
         () =>
           controller.abort(
             new DOMException('Inspection timed out', 'TimeoutError'),
           ),
-        25000,
+        inspectionTimeoutMs,
       );
       response.on('close', () => {
         if (!response.writableEnded) controller.abort();
@@ -161,6 +168,7 @@ export function createInspectionServer({
         });
       } finally {
         clearTimeout(timer);
+        controller.signal.removeEventListener('abort', abortBody);
         if (acquired) active--;
       }
     },

@@ -32,6 +32,8 @@ The operating system and hosting network remain part of the trust boundary. Run 
 
 Servers ignoring `Accept-Encoding: identity` are reported as unsupported. Compressed content is not decompressed without a bound. HTML is parsed in a disposable worker, not the HTTP event loop. HTML and URLs are not persisted by the application.
 
+The 25-second operation deadline includes reading the incoming body. If that body is still incomplete, the service closes the connection and releases its inspection slot; the caller may see a connection reset rather than a JSON error. Once the body is complete, inspection timeouts return the structured `TIMEOUT` response.
+
 ## Hosting
 
 `npm run api` binds **127.0.0.1:8787** by default. Non-loopback binding requires comma-separated `ALLOWED_HOSTS` (including the port, if present in Host) and `ALLOWED_ORIGINS` (full browser origins). `HOST` and `PORT` select the listener.

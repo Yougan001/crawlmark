@@ -1,6 +1,8 @@
 # Verification
 
-Run `npm ci` then `npm test` on Node 22.13+. Tests need no external website or credentials. The suite has 33 tests for parsing, robots, scoring, transport policy, streamed bounds, concurrency, sample, worker and loopback API. External DNS and outbound response streams are controlled in transport tests; the API and worker run for real.
+Run `npm ci` then `npm test` on Node 22.13+. Tests need no external website or credentials. The suite has 37 tests for parsing, robots, scoring, transport policy, streamed bounds, concurrency, sample, worker and loopback API. External DNS and outbound response streams are controlled in transport tests; the API and worker run for real.
+
+Request-body regression tests use real loopback connections with a shortened operation deadline. Two continuously trickling bodies must close and free both inspection slots, for both Content-Length and chunked uploads; a subsequent normal request must succeed. Separate cases cover client disconnection during upload and a structured timeout after a complete body. The inspection function is controlled, so these tests make no outbound requests.
 
 Manual local check: entered `https://yougan001.github.io/rowglass/` through the browser form on 2026-09-05. The real Node API fetched it and displayed its actual title and 13 findings. The source-only report found no headings in that client-rendered page. This is not a rendered-browser audit.
 

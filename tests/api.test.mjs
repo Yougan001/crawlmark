@@ -76,12 +76,144 @@ async function fixture(run, options = {}) {
       request.end(payload);
     });
   try {
-    await run({ post, url, calls: () => calls });
+    await run({ post, url, server, calls: () => calls });
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   }
 }
+
+async function slowBody(server, url, chunked = false) {
+  const received = new Promise((resolve) => server.once('request', resolve));
+  const request = http.request(`${url}/api/inspect`, {
+    method: 'POST',
+    agent: false,
+    headers: {
+      Host: 'test.local',
+      'Content-Type': 'application/json',
+      ...(chunked ? {} : { 'Content-Length': '1000' }),
+    },
+  });
+  let error;
+  request.on('error', (value) => {
+    error = value;
+  });
+  request.on('response', (response) => response.resume());
+  const closed = new Promise((resolve) => request.once('close', resolve));
+  request.write('{');
+  const interval = setInterval(() => {
+    if (!request.destroyed) request.write(' ');
+  }, 25);
+  request.once('close', () => clearInterval(interval));
+  const incoming = await received;
+  const serverClosed = new Promise((resolve) =>
+    incoming.once('close', resolve),
+  );
+  return {
+    request,
+    incoming,
+    closed: Promise.all([closed, serverClosed]),
+    error: () => error,
+  };
+}
+
+async function within(promise, milliseconds) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Request did not close in time')),
+          milliseconds,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+for (const chunked of [false, true]) {
+  test(
+    `slow request bodies release both slots at the deadline (${chunked ? 'chunked' : 'content-length'})`,
+    { timeout: 5000 },
+    () =>
+      fixture(
+        async ({ post, url, server, calls }) => {
+          const pending = [];
+          try {
+            pending.push(await slowBody(server, url, chunked));
+            pending.push(await slowBody(server, url, chunked));
+            assert.equal((await post()).status, 429);
+            await within(
+              Promise.all(pending.map(({ closed }) => closed)),
+              1500,
+            );
+            for (const body of pending) {
+              assert.equal(body.incoming.destroyed, true);
+              assert.equal(body.error()?.code, 'ECONNRESET');
+            }
+            assert.equal(calls(), 0);
+            assert.equal((await post()).status, 200);
+            assert.equal(calls(), 1);
+          } finally {
+            for (const body of pending) body.request.destroy();
+          }
+        },
+        { inspectionTimeoutMs: 250 },
+      ),
+  );
+}
+
+test(
+  'disconnecting during the request body releases inspection slots',
+  { timeout: 5000 },
+  () =>
+    fixture(async ({ post, url, server, calls }) => {
+      const pending = [];
+      try {
+        pending.push(await slowBody(server, url));
+        pending.push(await slowBody(server, url));
+        assert.equal((await post()).status, 429);
+        for (const body of pending) body.request.destroy();
+        await within(Promise.all(pending.map(({ closed }) => closed)), 1500);
+        assert.equal(calls(), 0);
+        assert.equal((await post()).status, 200);
+        assert.equal(calls(), 1);
+      } finally {
+        for (const body of pending) body.request.destroy();
+      }
+    }),
+);
+
+test(
+  'a timeout after the complete body still returns a structured error',
+  { timeout: 5000 },
+  async () => {
+    let calls = 0;
+    await fixture(
+      async ({ post }) => {
+        const response = await post();
+        assert.equal(response.status, 408);
+        assert.equal((await response.json()).error.code, 'TIMEOUT');
+        assert.equal((await post()).status, 200);
+      },
+      {
+        inspectionTimeoutMs: 250,
+        inspect: async (_, { signal }) => {
+          if (++calls > 1) return { checks: [] };
+          signal.throwIfAborted();
+          return new Promise((_, reject) => {
+            signal.addEventListener('abort', () => reject(signal.reason), {
+              once: true,
+            });
+          });
+        },
+      },
+    );
+  },
+);
 
 test('API returns structured reports and no-store CORS responses', () =>
   fixture(async ({ post, calls }) => {
