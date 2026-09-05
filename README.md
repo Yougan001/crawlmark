@@ -2,11 +2,11 @@
 
 A small URL inspection service for technical SEO and content-access reviews. Get evidence, a transparent checklist score and a fix list from one public page — without pretending to know its ranking or citation probability.
 
-**Current stage:** the engine, Node API and browser interface are available. The [Pages preview](https://yougan001.github.io/crawlmark/) runs an explicitly labeled sample. A public hosted API is not connected yet; real URL inspection works with the local/self-hosted API. GitHub Pages cannot run the URL-fetching backend.
+**[Try the live demo](https://yougan001.github.io/crawlmark/)** — enter a public URL for a real inspection, or open the local sample. The interface is hosted on GitHub Pages; a separate Node service performs the inspection. The free demo can take about a minute to wake up and has shared request limits. For sustained use, run your own instance.
 
-![Crawlmark sample report with a noindex blocker and concrete review steps](docs/images/workspace.png)
+![Crawlmark inspecting a public Rowglass page and showing evidence-backed findings](docs/images/workspace.png)
 
-The screenshot is from the public Pages preview. The sample is evaluated by the same report engine; it is not a live fetch of the example domain.
+The screenshot shows a real URL inspection through the public demo. The separate sample is explicitly labeled and evaluated locally by the same report engine.
 
 ## What it inspects
 
@@ -52,7 +52,7 @@ npm run dev -- --port 5184
 
 Open `http://localhost:5184`. The development server proxies `/api/inspect` to the loopback Node service. Use the URL form for a real inspection, or open the local sample. Findings can be filtered to issues/reviews or unknown checks; JSON export contains the complete report regardless of the current filter.
 
-For a production static build, set `VITE_INSPECTION_API` to the full HTTPS inspection endpoint before `npm run build`. The backend must allow the frontend origin. Without it, the URL button stays disabled and the page clearly says only the sample is available. Set `GITHUB_PAGES=true` for the `/crawlmark/` base path. The included Pages workflow intentionally does not pretend to host an API.
+For a production static build, set `VITE_INSPECTION_API` to the full HTTPS inspection endpoint before `npm run build`. The backend must allow the frontend origin. Without it, the URL button stays disabled and the page clearly says only the sample is available. Set `GITHUB_PAGES=true` for the `/crawlmark/` base path. The included Pages workflow reads its endpoint from repository Actions variables; it does not host the API. See [deployment.md](docs/deployment.md) for Render setup, cold starts and the demo's shared limits.
 
 `core/` contains deterministic report logic. `server/` owns networking, quotas and disposable parser workers. `app/` is the report desk, and `workers/` analyzes the sample locally. `tests/` contains policy, streaming and API regressions.
 
