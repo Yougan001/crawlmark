@@ -6,7 +6,7 @@ A small URL inspection service for technical SEO and content-access reviews. Get
 
 ![Crawlmark sample report with a noindex blocker and concrete review steps](docs/images/workspace.png)
 
-The screenshot is from the local app. The sample is evaluated by the same report engine; it is not a live fetch of the example domain.
+The screenshot is from the public Pages preview. The sample is evaluated by the same report engine; it is not a live fetch of the example domain.
 
 ## What it inspects
 

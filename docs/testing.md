@@ -14,3 +14,5 @@ Additional browser checks:
 - Lint, TypeScript and the ordinary Windows static build pass. The Windows Pages-mode build exited 1 during client output without a diagnostic; it is not considered successful. Linux Pages CI is the release gate for the prefixed build.
 
 Public API hosting is not configured yet. The static preview explicitly labels its sample and disables live inspection without an endpoint. Passing tests do not replace network isolation or deployment review.
+
+Public deployment verified on 2026-09-05: Linux inspection tests and Pages build/deployment passed for `144557b`. The public `/crawlmark/` page loads its sample worker, reports score 81 with a noindex blocker, and filters to three attention findings. Canonical and favicon paths use the correct project prefix. Screenshots were then refreshed from this public preview. The real-URL control is visibly disabled with an explanation while no hosted API is configured.
