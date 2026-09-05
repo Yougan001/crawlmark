@@ -5,10 +5,13 @@ import { ArrowUpRight, Download, ScanLine, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { FindingState, Report, Summary } from '@/core/report';
+import { requestInspection } from '@/lib/inspection-client.mjs';
 
 const endpoint =
   import.meta.env.VITE_INSPECTION_API ||
   (import.meta.env.DEV ? '/api/inspect' : '');
+const hostedDemo = import.meta.env.VITE_INSPECTION_DEMO === 'true';
+const requestTimeout = hostedDemo ? 90000 : 30000;
 const labels: Record<FindingState, string> = {
   pass: 'Pass',
   review: 'Review',
@@ -63,34 +66,17 @@ export default function Home() {
     const id = current.current.id;
     current.current.cancel = () => controller.abort();
     setBusy(true);
-    const timer = setTimeout(() => controller.abort(), 30000);
+    const timer = setTimeout(() => controller.abort(), requestTimeout);
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+      const payload = await requestInspection(endpoint, url.trim(), {
         signal: controller.signal,
-        credentials: 'omit',
-        cache: 'no-store',
       });
-      const payload = await response.json();
-      if (!response.ok)
-        throw new Error(
-          payload.error?.message ||
-            'The inspection service could not complete this request.',
-        );
-      if (
-        payload.version !== 1 ||
-        !Array.isArray(payload.checks) ||
-        !payload.summary
-      )
-        throw new Error('The service returned an unsupported report.');
       if (current.current.id === id) setReport(payload as Report);
     } catch (failure) {
       if (current.current.id === id)
         setError(
           controller.signal.aborted
-            ? 'The request exceeded 30 seconds. No old report has been kept.'
+            ? `The request exceeded ${requestTimeout / 1000} seconds. No old report has been kept. Please try again shortly.`
             : failure instanceof Error
               ? failure.message
               : 'The service could not be reached.',
@@ -217,6 +203,9 @@ export default function Home() {
             {endpoint
               ? 'URLs are sent to the inspection service. Public pages only — no passwords, private links or signed URLs.'
               : 'Public URL service is not connected yet. The sample runs locally; it does not inspect your URL.'}
+            {endpoint &&
+              hostedDemo &&
+              ' Free demo: the first request after inactivity may take a minute. Shared request limits apply.'}
           </p>
           <Button
             type="button"
@@ -229,7 +218,9 @@ export default function Home() {
         </div>
         <p className="status-line" aria-live="polite">
           {busy
-            ? 'Inspecting… fetching bounded responses and building the evidence report.'
+            ? hostedDemo
+              ? 'Inspecting… The free service may take a minute to wake up. You can cancel at any time.'
+              : 'Inspecting… fetching bounded responses and building the evidence report.'
             : error}
         </p>
       </section>

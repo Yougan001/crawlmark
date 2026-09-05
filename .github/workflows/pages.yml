@@ -26,6 +26,8 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: 'true'
+          VITE_INSPECTION_API: ${{ vars.VITE_INSPECTION_API }}
+          VITE_INSPECTION_DEMO: ${{ vars.VITE_INSPECTION_DEMO }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
